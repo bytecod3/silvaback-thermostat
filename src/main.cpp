@@ -29,7 +29,6 @@ void loop() {
     ambient_temperature = read_ambient_temperature();
     if (ambient_temperature == PARAMETER_ERR){
         debugln("Err:Could not read");
-
     }
 
     debugln(ambient_temperature);
