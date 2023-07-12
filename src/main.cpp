@@ -1,8 +1,13 @@
 #include <Arduino.h>
 #include <driver/adc.h>
 #include "defines.h"
-#include "Button.h"
-//
+#include "Button.h" /* Handle button presses */
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// surrounding temperature
 uint32_t ambient_temperature = 0;
 
 /**
@@ -30,10 +35,43 @@ uint32_t read_ambient_temperature(){
     return val;
 }
 
+/**
+ * Configure the screen
+ */
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+void config_screen(){
+    if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)){
+        debugln("[-]ERR: Display allocation failed!");
+        for(;;);
+    }
+
+    // allocation succeeded
+    display.clearDisplay();
+}
+
+void display_default(){
+    // Display Text
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(0,28);
+    display.println("Hello world!");
+    display.display();
+    delay(2000);
+    display.clearDisplay();
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
+    // configure ADC
     config_adc_rtc();
+
+    // configure screen
+    config_screen();
+
+    display_default();
 
 }
 
