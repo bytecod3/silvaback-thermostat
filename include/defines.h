@@ -19,6 +19,8 @@ enum errors{
 #define OLED_RESET  -1
 #define SCREEN_ADDRESS 0x3C
 
+// wifi icon
+
 /*
  * Debug variables
  */
