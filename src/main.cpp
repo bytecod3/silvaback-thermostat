@@ -1,8 +1,21 @@
 #include <Arduino.h>
 #include <driver/adc.h>
 #include "defines.h"
-
+#include "Button.h"
+//
 uint32_t ambient_temperature = 0;
+
+/**
+ * Create keypads
+ * Menu
+ * Up
+ * Down
+ * Reset
+ */
+Button menu_btn = Button(25, HIGH);
+//Button up_btn(33, HIGH);
+//Button down_btn(39, HIGH);
+//Button reset_btn(34, HIGH);
 
 /**
  * Configure ADC_RTC
@@ -32,4 +45,10 @@ void loop() {
     }
 
     debugln(ambient_temperature);
+
+    // poll the keypad buttons
+    if(menu_btn.getState() == Button::Pressed){
+        debugln("menu");
+    }
+
 }
