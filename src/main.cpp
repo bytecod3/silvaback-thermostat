@@ -7,9 +7,22 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Fonts/FreeMonoBold18pt7b.h>
+#include <Fonts/FreeMono9pt7b.h>
 
 // surrounding temperature
 uint32_t ambient_temperature = 0;
+uint32_t set_point = 40;
+
+// default mode = HOME
+uint8_t state = HOME;
+
+/*menu items */
+char *menu[MENU_SIZE] = {
+        "Set temperature",
+        "Enable remote",
+        "Lock temperature",
+        "Reset"
+};
 
 /**
  * Create keypads
@@ -121,7 +134,7 @@ void display_default(uint32_t val, uint32_t set_point){
 //    display.setTextSize(3);
     display.setFont(&FreeMonoBold18pt7b);
     display.setCursor(34, 43);
-    display.println(val % 100); // todo: modulo just for testing
+    display.println(val / 100); // todo: modulo just for testing
     display.drawCircle(80, 22, 2, WHITE);
     display.setCursor(83, 43);
     display.println("C");
@@ -136,6 +149,33 @@ void display_default(uint32_t val, uint32_t set_point){
 
 }
 
+void display_static_menu(){
+    /**
+     * display static menu
+     */
+     display.clearDisplay();
+//     display.setFont(&FreeMono9pt7b);
+     display.setCursor(15, 0);
+     display.println("Menu");
+
+     /*========================== */
+     display.setCursor(0, 17);
+     display.println(">");
+
+    for (int i = 0; i < MENU_SIZE; ++i) {
+        display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
+        display.println(menu[i]);
+
+        MENU_Y_OFFSET += 10;
+
+    }
+
+    MENU_Y_OFFSET = 17;
+
+     display.display();
+
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -144,6 +184,9 @@ void setup() {
 
     // configure screen
     config_screen();
+
+    // set default mode
+    display_default(ambient_temperature, set_point);
 
 }
 
@@ -156,12 +199,23 @@ void loop() {
 
     debugln(ambient_temperature);
 
-    // show temperature on the screen
-    display_default(ambient_temperature, 40);
+    /* toggle state */
+    if((menu_btn.getState() == Button::Pressed) && (state == HOME)){
+        state = MENU;
 
-    // poll the keypad buttons
-    if(menu_btn.getState() == Button::Pressed){
-        debugln("menu");
+    } else if ((menu_btn.getState() == Button::Pressed) && (state == MENU)){
+        state = HOME;
+
     }
+
+    /* display either menu or home page */
+    if ((menu_btn.getState() == Button::NotPressed) && (state == MENU)){
+        display_static_menu();
+        debugln("MENU showing");
+    } else if((menu_btn.getState() == Button::NotPressed) && (state == HOME)){
+        display_default(ambient_temperature, set_point);
+    }
+
+    delay(10);
 
 }

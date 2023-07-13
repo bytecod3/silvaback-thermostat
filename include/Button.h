@@ -12,7 +12,7 @@ private:
     char _pin; // pin where the button is connected
 
     char _pressed_state; // pressed state can be HIGH or LOW
-    static const int32_t DEBOUNCE_DELAY = 50;
+    static const int32_t DEBOUNCE_DELAY = 100;
 
     /* internal button state */
     enum InternalState{

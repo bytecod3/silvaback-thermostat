@@ -19,7 +19,15 @@ enum errors{
 #define OLED_RESET  -1
 #define SCREEN_ADDRESS 0x3C
 
-// wifi icon
+enum states{
+    HOME,
+    MENU,
+    SETTING
+};
+
+#define MENU_SIZE 4
+uint32_t MENU_X_OFFSET = 15;
+uint32_t MENU_Y_OFFSET = 17;
 
 /*
  * Debug variables
