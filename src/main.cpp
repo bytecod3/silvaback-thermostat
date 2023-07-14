@@ -31,10 +31,10 @@ char *menu[MENU_SIZE] = {
  * Down
  * Reset
  */
-Button menu_btn = Button(25, HIGH);
-//Button up_btn(33, HIGH);
-//Button down_btn(39, HIGH);
-//Button reset_btn(34, HIGH);
+Button menu_btn(25, HIGH);
+Button up_btn(33, HIGH);
+Button down_btn(39, HIGH);
+Button reset_btn(34, HIGH);
 
 /**
  * Configure ADC_RTC
@@ -95,6 +95,17 @@ static const unsigned char PROGMEM wifiHotspot_icon[] = {
         B00000000, B00000000,
         B00000000, B00000000
 };
+
+/**
+ * Buzzer sound
+ */
+void buzz(){
+    digitalWrite(BUZZER, HIGH);
+    delay(200);
+    digitalWrite(BUZZER, LOW);
+}
+
+
 void config_screen(){
     if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)){
         debugln("[-]ERR: Display allocation failed!");
@@ -104,6 +115,7 @@ void config_screen(){
     // allocation succeeded
     display.clearDisplay();
 }
+
 
 void display_default(uint32_t val, uint32_t set_point){
     display.clearDisplay();
@@ -176,6 +188,82 @@ void display_static_menu(){
 
 }
 
+/**
+ * Switch ON or OFF the HVAC voltage switch - relay
+ */
+void activate_HVAC(uint32_t set, uint32_t ambient){
+    // if ambient temperature is less than the set point, warm the room
+    // if the ambient temperature is more than the set point, it is hot, cool the room
+
+    if(ambient > set){
+        digitalWrite(RELAY, HIGH);
+
+        // visual report on the LOAD_ON led
+        digitalWrite(LOAD_ON, HIGH);
+    } else {
+        digitalWrite(RELAY, LOW);
+        digitalWrite(LOAD_ON, LOW);
+    }
+
+}
+
+/*
+ * Allow the user to set the reference temperature
+ * called when the user chooses set temperature from the menu
+ */
+void set_reference_temperature(){
+    // poll the increment and decrement buttons
+    if(up_btn.getState() == Button::Pressed){
+        set_point++;
+
+        // check against the threshold temperature
+        if(set_point >= MAX_TEMPERATURE){
+            buzz();
+
+            // todo: lock the temperature from incrementing on the screen
+
+        }
+    }
+
+    if(down_btn.getState() == Button::Pressed){
+        set_point--;
+
+        if(set_point <= ROOM_TEMPERATURE){
+            buzz();
+
+            // todo: lock the temperature from going below the room_temperature
+        }
+    }
+}
+
+/**
+ * Activate WIFI subsystem
+ */
+void init_WIFI(){
+
+}
+
+/**
+ * Deactivate WIFI subsystem
+ */
+void deactivate_WIFI(){
+
+}
+
+/**
+ * Enable WIFI control of the system
+ */
+void enable_remote(){
+    // poll the buttons to check if the enable remote flag is set
+    if(ENABLE_REMOTE){
+        // activate WIFI sub-system
+        init_WIFI();
+    } else{
+        // deactivate WIFI sub-system
+        deactivate_WIFI();
+    }
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -187,7 +275,6 @@ void setup() {
 
     // set default mode
     display_default(ambient_temperature, set_point);
-
 }
 
 void loop() {
@@ -202,10 +289,8 @@ void loop() {
     /* toggle state */
     if((menu_btn.getState() == Button::Pressed) && (state == HOME)){
         state = MENU;
-
     } else if ((menu_btn.getState() == Button::Pressed) && (state == MENU)){
         state = HOME;
-
     }
 
     /* display either menu or home page */

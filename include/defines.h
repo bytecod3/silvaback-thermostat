@@ -7,9 +7,22 @@
 
 #define BAUD_RATE 115200
 
+// pins
+#define RELAY 20
+#define LOAD_ON 23 // indicate when the AC load is ON
+#define BUZZER 18
+
+uint32_t ENABLE_REMOTE =  1;
+
 enum errors{
     PARAMETER_ERR = -1,
 };
+
+#define MAX_TEMPERATURE 60 // max temp in deg C
+#define ROOM_TEMPERATURE 22 // set minimum to be at room temperature
+
+// todo: ideally the reference temperature should be the room temperature
+
 
 /**
  * Screen variables
