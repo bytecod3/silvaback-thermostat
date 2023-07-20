@@ -2,6 +2,7 @@
 #include <driver/adc.h>
 #include "defines.h"
 #include "Button.h" /* Handle button presses */
+#include "Temperature.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -44,7 +45,7 @@ void config_adc_rtc(){
     adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
 }
 
-uint32_t read_ambient_temperature(){
+uint32_t read_divider_analog_value(){
     uint32_t val = adc1_get_raw(ADC1_CHANNEL_0);
     return val;
 }
@@ -254,12 +255,12 @@ void deactivate_WIFI(){
  * Enable WIFI control of the system
  */
 void enable_remote(){
-    // poll the buttons to check if the enable remote flag is set
+    // poll the buttons to check if enable_remote flag is set
     if(ENABLE_REMOTE){
-        // activate WIFI sub-system
+        // activate WI-FI sub-system
         init_WIFI();
     } else{
-        // deactivate WIFI sub-system
+        // deactivate WI-FI sub-system
         deactivate_WIFI();
     }
 }
@@ -279,7 +280,9 @@ void setup() {
 
 void loop() {
 
-    ambient_temperature = read_ambient_temperature();
+    analog_out = read_divider_analog_value();
+    ambient_temperature = calculate_temp_in_deg_C(analog_out);
+
     if (ambient_temperature == PARAMETER_ERR){
         debugln("Err:Could not read");
     }
