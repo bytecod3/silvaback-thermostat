@@ -35,9 +35,10 @@ public:
         Pressed
     };
 
+    uint32_t number_of_presses;
+
     // get the current state of the button
     ButtonState getState();
-
 
 };
 

@@ -43,6 +43,13 @@ uint32_t MENU_X_OFFSET = 15;
 uint32_t MENU_Y_OFFSET = 17;
 
 /*
+Rotary encoder variables 
+ */
+#define SW 12
+#define OUT_A 26
+#define OUT_B 27
+
+/*
  * Debug variables
  */
 #define DEBUG 1

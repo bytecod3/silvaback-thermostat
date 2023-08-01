@@ -9,6 +9,7 @@ Button::Button(uint32_t digital_pin_, uint32_t pressedState_) {
     _pin = digital_pin_;
     _pressed_state = pressedState_;
     _internal_state = Idle;
+    number_of_presses = 0;
 
     // set up the pin
     pinMode(digital_pin_, INPUT);

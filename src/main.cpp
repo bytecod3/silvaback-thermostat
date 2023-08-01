@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <driver/adc.h>
 #include "defines.h"
-#include "Button.h" /* Handle button presses */
 #include "Temperature.h"
 #include <SPI.h>
 #include <Wire.h>
@@ -24,18 +23,6 @@ char *menu[MENU_SIZE] = {
         "Lock temperature",
         "Reset"
 };
-
-/**
- * Create keypads
- * Menu
- * Up
- * Down
- * Reset
- */
-Button menu_btn(25, HIGH);
-Button up_btn(33, HIGH);
-Button down_btn(39, HIGH);
-Button reset_btn(34, HIGH);
 
 /**
  * Configure ADC_RTC
@@ -147,7 +134,7 @@ void display_default(uint32_t val, uint32_t set_point){
 //    display.setTextSize(3);
     display.setFont(&FreeMonoBold18pt7b);
     display.setCursor(34, 43);
-    display.println(val / 100); // todo: modulo just for testing
+    display.println(val);
     display.drawCircle(80, 22, 2, WHITE);
     display.setCursor(83, 43);
     display.println("C");
@@ -185,7 +172,76 @@ void display_static_menu(){
 
     MENU_Y_OFFSET = 17;
 
-     display.display();
+    display.display();
+
+}
+
+/**
+Rotary encoder function
+*/
+struct Button{
+    const uint32_t pin;
+    uint32_t no_of_presses;
+    bool pressed;
+};
+
+uint8_t encoder_pinA =  14;
+uint8_t encoder_pinB = 27;
+uint32_t encoder_button_pin = 12;
+uint32_t no_of_presses = 0;
+
+Button encoder_button = {encoder_button_pin, 0, false};
+
+volatile uint32_t counter = 0;
+unsigned long debounce_delay = 0;
+
+/*
+ * Interrupt service routine for handling encoder button rotation
+ */
+void IRAM_ATTR readEncoder(){
+    static uint8_t old_ab = 3;
+    static int8_t encoder_value = 0; // encoder value
+    static const int enc_states[] = {0,-1,1,0,1,0,0,-1,-1,0,0,1,0,1,-1,0};
+
+    old_ab <<= 2; // remember previous state
+
+    if(digitalRead(encoder_pinA)) old_ab |= 0x02; // add current state of pin A
+
+    if(digitalRead(encoder_pinB)) old_ab |= 0x01; // add current state of pin B
+
+    encoder_value += enc_states[(old_ab & 0x0f)];
+
+    if(encoder_value > 2){ // four steps forward
+        debugln("CW");
+        counter++; //increase counter
+        encoder_value = 0;
+
+    } else if(encoder_value < -2){ // four steps backwards
+        debugln("CCW");
+        counter--;
+        encoder_value = 0;
+    }
+}
+
+/*
+ * Interrupt service routine for encoder button press
+ */
+void IRAM_ATTR encoderButtonPress(){
+    encoder_button.no_of_presses++;
+    encoder_button.pressed = true;
+}
+
+/*
+ * Attach interrupts for encoder pins
+ */
+void encoderInterruptAttach(){
+    pinMode(encoder_pinA, INPUT_PULLUP);
+    pinMode(encoder_pinB, INPUT_PULLUP);
+    pinMode(encoder_button_pin, INPUT_PULLUP);
+
+    attachInterrupt(encoder_pinA, readEncoder, CHANGE);
+    attachInterrupt(encoder_pinB, readEncoder, CHANGE);
+    attachInterrupt(encoder_button.pin, encoderButtonPress, FALLING);
 
 }
 
@@ -205,7 +261,6 @@ void activate_HVAC(uint32_t set, uint32_t ambient){
         digitalWrite(RELAY, LOW);
         digitalWrite(LOAD_ON, LOW);
     }
-
 }
 
 /*
@@ -276,6 +331,9 @@ void setup() {
 
     // set default mode
     display_default(ambient_temperature, set_point);
+
+    // set rotary encoder pin-outs
+    encoderInterruptAttach();
 }
 
 void loop() {
@@ -287,21 +345,25 @@ void loop() {
         debugln("Err:Could not read");
     }
 
-    debugln(ambient_temperature);
+    display_default(ambient_temperature, set_point);
 
-    /* toggle state */
-    if((menu_btn.getState() == Button::Pressed) && (state == HOME)){
-        state = MENU;
-    } else if ((menu_btn.getState() == Button::Pressed) && (state == MENU)){
-        state = HOME;
+    /*
+     * Handle encoder rotation
+     */
+    static uint8_t last_counter = 0;
+    // if counter has changed, print the new value to serial
+    if(counter != last_counter){
+        debugln(counter);
+        last_counter = counter;
     }
 
-    /* display either menu or home page */
-    if ((menu_btn.getState() == Button::NotPressed) && (state == MENU)){
-        display_static_menu();
-        debugln("MENU showing");
-    } else if((menu_btn.getState() == Button::NotPressed) && (state == HOME)){
-        display_default(ambient_temperature, set_point);
+    /*
+     * Handle encoder button press
+     */
+    if(encoder_button.pressed){
+        debug("Button pressed "); debug(encoder_button.no_of_presses);debugln();
+
+        encoder_button.pressed = false;
     }
 
     delay(10);
