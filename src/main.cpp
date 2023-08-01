@@ -16,14 +16,6 @@ uint32_t set_point = 40;
 // default mode = HOME
 uint8_t state = HOME;
 
-/*menu items */
-char *menu[MENU_SIZE] = {
-        "Set temperature",
-        "Enable remote",
-        "Lock temperature",
-        "Reset"
-};
-
 /**
  * Configure ADC_RTC
  */
@@ -149,35 +141,9 @@ void display_default(uint32_t val, uint32_t set_point){
 
 }
 
-void display_static_menu(){
-    /**
-     * display static menu
-     */
-     display.clearDisplay();
-//     display.setFont(&FreeMono9pt7b);
-     display.setCursor(15, 0);
-     display.println("Menu");
-
-     /*========================== */
-     display.setCursor(0, 17);
-     display.println(">");
-
-    for (int i = 0; i < MENU_SIZE; ++i) {
-        display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
-        display.println(menu[i]);
-
-        MENU_Y_OFFSET += 10;
-
-    }
-
-    MENU_Y_OFFSET = 17;
-
-    display.display();
-
-}
 
 /**
-Rotary encoder function
+* ====================================== ROTARY ENCODER =============================
 */
 struct Button{
     const uint32_t pin;
@@ -189,8 +155,9 @@ uint8_t encoder_pinA =  14;
 uint8_t encoder_pinB = 27;
 uint32_t encoder_button_pin = 12;
 uint32_t no_of_presses = 0;
+String encoder_direction = "";
 
-Button encoder_button = {encoder_button_pin, 0, false};
+Button encoder_button = {encoder_button_pin, 0, false}; // todo: debounce this with hardware schmitt trigger method
 
 volatile uint32_t counter = 0;
 unsigned long debounce_delay = 0;
@@ -212,12 +179,12 @@ void IRAM_ATTR readEncoder(){
     encoder_value += enc_states[(old_ab & 0x0f)];
 
     if(encoder_value > 2){ // four steps forward
-        debugln("CW");
+        encoder_direction = "CW";
         counter++; //increase counter
         encoder_value = 0;
 
     } else if(encoder_value < -2){ // four steps backwards
-        debugln("CCW");
+        encoder_direction = "CCW";
         counter--;
         encoder_value = 0;
     }
@@ -246,6 +213,104 @@ void encoderInterruptAttach(){
 }
 
 /**
+ * ====================== END OF ROTARY ENCODER FUNCTIONS ====================================
+ */
+
+
+/*
+ * ========================================== MENU ================================
+ */
+
+uint32_t menu_item = 0;
+uint32_t frame = 1;
+uint32_t page = 1;
+uint32_t last_menu_item = 1;
+uint32_t menu_timeout = 6000; // if menu goes inactive for this state, return to home state
+
+bool up = false;
+bool down = false;
+bool middle = false;
+bool menu_state = false; // true if we get into displaying the menu
+
+String menu_items[5] = {
+        "Set temperature",
+        "Enable remote",
+        "Sleep",
+        "Change units",
+        "Reset"
+};
+
+// enable remote options
+String enable_remote[2] = {
+    "Yes",
+    "No"
+};
+uint32_t selected_remote_state = 0;
+
+String change_units[2] = {
+        "C",
+        "F"
+};
+uint32_t selected_units = 0;
+
+void drawMenu(uint32_t item){
+    /**
+     * display static menu
+     */
+    display.clearDisplay();
+    display.setCursor(15, 0);
+    display.println("Menu");
+
+    /*========================== */
+    switch(item){
+        case(0):
+            display.setCursor(0, 17);
+
+            break;
+
+        case (1):
+            display.setCursor(0, 34);
+
+            break;
+
+        case (2):
+            display.setCursor(0, 51);
+
+            break;
+
+        case (3):
+            display.setCursor(0, 68);
+
+            break;
+        default:
+            display.setCursor(0, 17);
+
+            break;
+    }
+
+    display.println(">");
+
+    for (int i = 0; i < MENU_SIZE; ++i) {
+        display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
+        display.println(menu_items[i]);
+
+        MENU_Y_OFFSET += 10;
+
+    }
+
+    MENU_Y_OFFSET = 17;
+
+    display.display();
+
+}
+
+
+/*
+ * ======================================= END OF MENU FUNCTIONS =============================
+ */
+
+
+/**
  * Switch ON or OFF the HVAC voltage switch - relay
  */
 void activate_HVAC(uint32_t set, uint32_t ambient){
@@ -267,30 +332,30 @@ void activate_HVAC(uint32_t set, uint32_t ambient){
  * Allow the user to set the reference temperature
  * called when the user chooses set temperature from the menu
  */
-void set_reference_temperature(){
-    // poll the increment and decrement buttons
-    if(up_btn.getState() == Button::Pressed){
-        set_point++;
-
-        // check against the threshold temperature
-        if(set_point >= MAX_TEMPERATURE){
-            buzz();
-
-            // todo: lock the temperature from incrementing on the screen
-
-        }
-    }
-
-    if(down_btn.getState() == Button::Pressed){
-        set_point--;
-
-        if(set_point <= ROOM_TEMPERATURE){
-            buzz();
-
-            // todo: lock the temperature from going below the room_temperature
-        }
-    }
-}
+//void set_reference_temperature(){
+//    // poll the increment and decrement buttons
+//    if(up_btn.getState() == Button::Pressed){
+//        set_point++;
+//
+//        // check against the threshold temperature
+//        if(set_point >= MAX_TEMPERATURE){
+//            buzz();
+//
+//            // todo: lock the temperature from incrementing on the screen
+//
+//        }
+//    }
+//
+//    if(down_btn.getState() == Button::Pressed){
+//        set_point--;
+//
+//        if(set_point <= ROOM_TEMPERATURE){
+//            buzz();
+//
+//            // todo: lock the temperature from going below the room_temperature
+//        }
+//    }
+//}
 
 /**
  * Activate WIFI subsystem
@@ -309,16 +374,16 @@ void deactivate_WIFI(){
 /**
  * Enable WIFI control of the system
  */
-void enable_remote(){
-    // poll the buttons to check if enable_remote flag is set
-    if(ENABLE_REMOTE){
-        // activate WI-FI sub-system
-        init_WIFI();
-    } else{
-        // deactivate WI-FI sub-system
-        deactivate_WIFI();
-    }
-}
+//void enable_remote(){
+//    // poll the buttons to check if enable_remote flag is set
+//    if(ENABLE_REMOTE){
+//        // activate WI-FI sub-system
+//        init_WIFI();
+//    } else{
+//        // deactivate WI-FI sub-system
+//        deactivate_WIFI();
+//    }
+//}
 
 void setup() {
     Serial.begin(BAUD_RATE);
@@ -334,6 +399,9 @@ void setup() {
 
     // set rotary encoder pin-outs
     encoderInterruptAttach();
+
+    // initial operating state is home
+    state = HOME;
 }
 
 void loop() {
@@ -351,21 +419,43 @@ void loop() {
      * Handle encoder rotation
      */
     static uint8_t last_counter = 0;
-    // if counter has changed, print the new value to serial
-    if(counter != last_counter){
-        debugln(counter);
-        last_counter = counter;
-    }
 
     /*
      * Handle encoder button press
      */
-    if(encoder_button.pressed){
-        debug("Button pressed "); debug(encoder_button.no_of_presses);debugln();
+
+    if(encoder_button.pressed && state == HOME){
+        // debug("Button pressed "); debug(encoder_button.no_of_presses);debugln();
+
+        state = MENU; // change operating state to menu
+
+        if(state == MENU){
+            /*
+             * =============== DRAW MENU =======================================
+             */
+            drawMenu(menu_item);
+            do {
+
+                debugln(encoder_direction);
+
+
+            } while(state == MENU);
+
+            // if button is pressed here,
+        }
+
+        if(encoder_button.pressed && state == MENU){
+            display_default(ambient_temperature, set_point);
+        }
 
         encoder_button.pressed = false;
+
+//        delay(menu_timeout);
+
     }
 
-    delay(10);
+    // reset state to home
+    state = HOME;
+
 
 }
