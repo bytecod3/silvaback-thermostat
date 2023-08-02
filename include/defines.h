@@ -38,7 +38,6 @@ enum states{
     SETTING
 };
 
-#define MENU_SIZE 4
 uint32_t MENU_X_OFFSET = 15;
 uint32_t MENU_Y_OFFSET = 17;
 

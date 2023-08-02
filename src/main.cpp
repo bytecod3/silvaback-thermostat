@@ -178,14 +178,23 @@ void IRAM_ATTR readEncoder(){
 
     encoder_value += enc_states[(old_ab & 0x0f)];
 
-    if(encoder_value > 2){ // four steps forward
+    if(encoder_value > 2){ // two steps forward
         encoder_direction = "CW";
-        counter++; //increase counter
+
+        if(counter < 4){
+            // set boundary condition for menu - last item in menu todo:change 4 to menu size
+            counter++; //increase counter
+        }
+
         encoder_value = 0;
 
-    } else if(encoder_value < -2){ // four steps backwards
+    } else if(encoder_value < -2){ // two steps backwards
         encoder_direction = "CCW";
-        counter--;
+        if(counter > 0){
+            // set boundary condition - first item of menu
+            counter--;
+        }
+
         encoder_value = 0;
     }
 }
@@ -226,13 +235,14 @@ uint32_t frame = 1;
 uint32_t page = 1;
 uint32_t last_menu_item = 1;
 uint32_t menu_timeout = 6000; // if menu goes inactive for this state, return to home state
+#define MENU_SIZE 5
 
 bool up = false;
 bool down = false;
 bool middle = false;
 bool menu_state = false; // true if we get into displaying the menu
 
-String menu_items[5] = {
+String menu_items[MENU_SIZE] = {
         "Set temperature",
         "Enable remote",
         "Sleep",
@@ -429,29 +439,37 @@ void loop() {
 
         state = MENU; // change operating state to menu
 
-        if(state == MENU){
-            /*
-             * =============== DRAW MENU =======================================
-             */
-            drawMenu(menu_item);
-            do {
 
-                debugln(encoder_direction);
+        /*
+         * =============== DRAW MENU =======================================
+         */
+        drawMenu(menu_item);
+        do {
 
+            // debugln(encoder_direction);
 
-            } while(state == MENU);
+            if(encoder_direction == "CCW"){
+                debug("Up"); debugln(counter);
 
-            // if button is pressed here,
-        }
+                drawMenu(counter);
+
+            } else if(encoder_direction == "CW"){
+                debug("Down"); debugln(counter);
+
+                drawMenu(counter);
+
+            }
+
+        } while(state == MENU);
+
+        // if button is pressed here,
+
 
         if(encoder_button.pressed && state == MENU){
             display_default(ambient_temperature, set_point);
         }
 
         encoder_button.pressed = false;
-
-//        delay(menu_timeout);
-
     }
 
     // reset state to home
