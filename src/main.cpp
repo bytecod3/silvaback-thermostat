@@ -274,31 +274,36 @@ void drawMenu(uint32_t item){
     /*========================== */
     switch(item){
         case(0):
-            display.setCursor(0, 17);
-
+            display.setCursor(0, MENU_Y_OFFSET);
+            display.println(">");
             break;
 
         case (1):
-            display.setCursor(0, 34);
-
+            display.setCursor(0, MENU_Y_OFFSET + 10);
+            display.println(">");
             break;
 
         case (2):
-            display.setCursor(0, 51);
-
+            display.setCursor(0, MENU_Y_OFFSET + 20);
+            display.println(">");
             break;
 
         case (3):
-            display.setCursor(0, 68);
-
+            display.setCursor(0, MENU_Y_OFFSET + 30);
+            display.println(">");
             break;
-        default:
-            display.setCursor(0, 17);
 
+        case (4):
+            display.setCursor(0, MENU_Y_OFFSET + 40);
+            display.println(">");
+            break;
+
+        default:
+
+            display.setCursor(0, MENU_Y_OFFSET);
+            display.println(">");
             break;
     }
-
-    display.println(">");
 
     for (int i = 0; i < MENU_SIZE; ++i) {
         display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
@@ -310,6 +315,22 @@ void drawMenu(uint32_t item){
 
     MENU_Y_OFFSET = 17;
 
+    display.display();
+
+}
+
+// set temperature
+void setTemperature(){
+    display.clearDisplay();
+    display.setCursor(20, 0);
+    display.println("Set temperature");
+
+    display.setCursor(40, 40);
+    display.setFont(&FreeMonoBold18pt7b);
+
+    display.println(set_point);
+
+    display.setFont();
     display.display();
 
 }
@@ -434,11 +455,11 @@ void loop() {
      * Handle encoder button press
      */
 
-    if(encoder_button.pressed && state == HOME){
+    if(encoder_button.pressed && state == states::HOME){
         // debug("Button pressed "); debug(encoder_button.no_of_presses);debugln();
 
-        state = MENU; // change operating state to menu
-
+        state = states::MENU; // change operating state to menu
+        encoder_button.pressed = false;
 
         /*
          * =============== DRAW MENU =======================================
@@ -453,10 +474,31 @@ void loop() {
 
                 drawMenu(counter);
 
+                // if encoder button is clicked while the menu is being displayed,
+                // call the corresponding menu function
+                if(encoder_button.pressed){
+                    if(counter == 0){
+                        state = states::MENU_ITEM_ONE;
+                        debugln(menu_items[counter]);
+
+                        state = states::MENU_ITEM_ONE;
+                        do{
+                            setTemperature();
+                            state = states::MENU_ITEM_ONE;
+                        } while(state);
+
+                        debugln(state);
+                    }
+                }
+
+                encoder_button.pressed = false;
+
             } else if(encoder_direction == "CW"){
                 debug("Down"); debugln(counter);
 
                 drawMenu(counter);
+
+                debugln(menu_items[counter]);
 
             }
 
@@ -464,12 +506,11 @@ void loop() {
 
         // if button is pressed here,
 
-
         if(encoder_button.pressed && state == MENU){
             display_default(ambient_temperature, set_point);
         }
 
-        encoder_button.pressed = false;
+
     }
 
     // reset state to home

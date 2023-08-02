@@ -35,7 +35,8 @@ enum errors{
 enum states{
     HOME,
     MENU,
-    SETTING
+    MENU_ITEM_ONE,
+    MENU_ITEM_TWO
 };
 
 uint32_t MENU_X_OFFSET = 15;
