@@ -1,0 +1,15 @@
+* C:\Users\USER\Desktop\projects\silvaback-thermostat\hardware\simulation\mosfet-battery-proctection.asc
+M1 N004 N003 0 0 Si7386DP
+R1 N003 N004 100
+V1 N003 0 -10
+R2 N002 0 100
+V2 N001 0 -10
+M2 N001 0 N002 N002 AO6407
+.model NMOS NMOS
+.model PMOS PMOS
+.lib C:\Users\USER\AppData\Local\LTspice\lib\cmp\standard.mos
+.tran 50u startup
+* PMOS
+* NMOS
+.backanno
+.end

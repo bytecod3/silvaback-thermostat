@@ -157,7 +157,7 @@ uint32_t encoder_button_pin = 12;
 uint32_t no_of_presses = 0;
 String encoder_direction = "";
 
-Button encoder_button = {encoder_button_pin, 0, false}; // todo: debounce this with hardware schmitt trigger method
+Button encoder_button = {encoder_button_pin, 0, false}; // todo: debounce this with schmitt
 
 volatile uint32_t counter = 0;
 unsigned long debounce_delay = 0;
