@@ -345,9 +345,9 @@ void drawMenu(uint32_t item){
             break;
     }
 
-    for (int i = 0; i < MENU_SIZE; ++i) {
+    for (const auto & menu_item : menu_items) {
         display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
-        display.println(menu_items[i]);
+        display.println(menu_item);
 
         MENU_Y_OFFSET += 10;
 
@@ -383,7 +383,7 @@ void activate_HVAC(uint32_t set, uint32_t ambient){
         digitalWrite(RELAY, HIGH); // turn on heating element
         digitalWrite(LOAD_ON, HIGH);
     } else{
-        // if equal, no ch
+        // if equal, no change
         digitalWrite(RELAY, LOW);
         digitalWrite(LOAD_ON, LOW);
     }
@@ -417,6 +417,22 @@ void deactivate_WIFI(){
 //    }
 //}
 
+void wakeup(){
+    esp_sleep_wakeup_cause_t wake_up_source;
+
+    wake_up_source = esp_sleep_get_wakeup_cause();
+
+    switch(wake_up_source){
+        case ESP_SLEEP_WAKEUP_EXT0 : debugln("Wake-up from external signal with RTC_IO"); break;
+        case ESP_SLEEP_WAKEUP_EXT1 : debugln("Wake-up from external signal with RTC_CNTL"); break;
+        case ESP_SLEEP_WAKEUP_TIMER : debugln("Wake up caused by a timer"); break;
+        case ESP_SLEEP_WAKEUP_TOUCHPAD : debugln("Wake up caused by a touchpad"); break;
+        default : Serial.printf("Wake up not caused by Deep Sleep: %d\n",wake_up_source); break;
+    }
+
+    ESP.restart();
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -449,6 +465,11 @@ void setup() {
 
     debugln("Created NVS partition");
 
+//    wakeup();
+
+    // enable external RTC GPIO wakeup
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_25, HIGH);
+
 }
 
 void loop() {
@@ -474,7 +495,6 @@ void loop() {
      * Handle encoder button press
      */
 
-    debugln(state);
     if(encoder_button.pressed && state == states::HOME){
         // debug("Button pressed "); debug(encoder_button.no_of_presses); debugln();
 
@@ -497,9 +517,14 @@ void loop() {
                 // if encoder button is clicked while the menu is being displayed,
                 // call the corresponding menu function
                 if(encoder_button.pressed && state == states::MENU){
+
+                    debugln(counter);
+
                     if(counter == 0){
                         // SET TEMPERATURE
                         state = states::MENU_ITEM_ONE;
+
+                        debugln("We ar here");
 
                         encoder_button.pressed = false;
 
@@ -534,11 +559,57 @@ void loop() {
                             }
 
                         } while(state == states::MENU_ITEM_ONE);
+
+                    } else if (counter == 2) {
+                        // GO INTO DEEP SLEEP - ZZZ... :)
+                        debugln("We ar here second");
+
+                        state = states::MENU_ITEM_TWO;
+
+                        encoder_button.pressed = false;
+
+                        if (encoder_button.pressed && state == states::MENU_ITEM_TWO){
+
+                            do {
+                                if(state == states::MENU_ITEM_TWO){
+                                    debugln("MENU_ITEM_TWO");
+                                }
+
+                                display.clearDisplay();
+                                display.setCursor(20, 40);
+                                display.setFont(&FreeMono9pt7b);
+                                display.println("Standby");
+                                display.setFont();
+                                display.display();
+
+                                delay(DEEP_SLEEP_COUNTDOWN);
+
+                                // esp_deep_sleep_start();
+
+
+
+
+                            } while (state == states::MENU_ITEM_TWO);
+
+                        }
                     } else if (counter == 4){
-                        // restart ESP
-                        ESP.restart();
+                        // RESTART ESP
+
+                        state = states::MENU_ITEM_FOUR;
+                        encoder_button.pressed = false;
+
+                        do{
+                            if(encoder_button.pressed && state == states::MENU_ITEM_FOUR){
+                                ESP.restart();
+                            }
+
+                        } while(state == states::MENU_ITEM_FOUR);
+
                     }
+
                 }
+                // RESET STATE
+                //state = states::MENU;
 
                 //encoder_button.pressed = false;
 

@@ -1,5 +1,5 @@
 //
-// Created by USER on 7/10/2023.
+// Created by Edwin on 7/10/2023.
 //
 
 #ifndef SILVABACK_THERMOSTAT_DEFINES_H
@@ -38,8 +38,12 @@ enum states{
     MENU_ITEM_ONE,
     MENU_ITEM_TWO,
     MENU_ITEM_THREE,
+    MENU_ITEM_FOUR,
+    MENU_ITEM_FIVE,
     SETTING_TEMPERATURE
 };
+
+#define DEEP_SLEEP_COUNTDOWN 3000
 
 uint32_t MENU_X_OFFSET = 15;
 uint32_t MENU_Y_OFFSET = 17;
