@@ -8,11 +8,15 @@
 #include <Adafruit_SSD1306.h>
 #include <Fonts/FreeMonoBold18pt7b.h>
 #include <Fonts/FreeMono9pt7b.h>
+#include <Preferences.h>
 
 // surrounding temperature
 uint32_t ambient_temperature = 0;
-volatile uint32_t set_point = 0;
+uint32_t set_point = ROOM_TEMPERATURE;
 void setTemperature();
+
+// initialize NVS for storing user set temperature
+Preferences user_data;
 
 // default mode = HOME
 uint8_t state = HOME;
@@ -115,7 +119,7 @@ void display_default(uint32_t val){
     display.setCursor(0, 17);
     display.println("Set: ");
     display.setCursor(0, 25);
-    display.println(set_point);
+    display.println(user_data.getUInt("set_point", ROOM_TEMPERATURE));
     display.drawCircle(16, 27, 1, WHITE);
     display.setCursor(18, 25);
     display.println("C"); // todo: function to change units and convert
@@ -370,15 +374,18 @@ void activate_HVAC(uint32_t set, uint32_t ambient){
 
     debugln(ambient);
     debugln(set);
-
     if(ambient > set){
-        digitalWrite(RELAY, HIGH);
+        digitalWrite(RELAY, LOW); // turn off heating element
 
         // visual report on the LOAD_ON led
         digitalWrite(LOAD_ON, LOW);
     } else if( ambient < set) {
-        digitalWrite(RELAY, LOW);
+        digitalWrite(RELAY, HIGH); // turn on heating element
         digitalWrite(LOAD_ON, HIGH);
+    } else{
+        // if equal, no ch
+        digitalWrite(RELAY, LOW);
+        digitalWrite(LOAD_ON, LOW);
     }
 }
 
@@ -430,9 +437,24 @@ void setup() {
 
     // initial operating state is home
     state = HOME;
+
+    // initialize user config memory
+    user_data.begin("config_data", false);
+
+    // save set_point to memory
+    user_data.putUInt("set_point", set_point);
+
+    // get last saved set point from memory
+    set_point = user_data.getUInt("config_data", ROOM_TEMPERATURE);
+
+    debugln("Created NVS partition");
+
 }
 
 void loop() {
+
+    debug("User set_point: ");
+    debugln(user_data.getUInt("set_point"));
 
     analog_out = read_divider_analog_value();
     ambient_temperature = calculate_temp_in_deg_C(analog_out);
@@ -493,16 +515,11 @@ void loop() {
                             display.setFont(&FreeMonoBold18pt7b);
 
                             // check for encoder rotation increment or decrement
-                            if(encoder_direction == "CCW"){
-                                set_point = counter;
-//                                debugln(counter);
+                            set_point = counter;
+                            display.println(user_data.getUInt("set_point", ROOM_TEMPERATURE));
 
-                                display.println(set_point);
-                            } else if  (encoder_direction == "CW"){
-                                set_point = counter;
-//                                debugln(counter);
-                                display.println(set_point);
-                            }
+                            // update this variable in NVS in case controller loses power
+                            user_data.putUInt("set_point", set_point);
 
                             display.setFont();
                             display.display();
@@ -517,8 +534,9 @@ void loop() {
                             }
 
                         } while(state == states::MENU_ITEM_ONE);
-                    } else if (counter == 1){
-                        // ENABLE REMOTE
+                    } else if (counter == 4){
+                        // restart ESP
+                        ESP.restart();
                     }
                 }
 

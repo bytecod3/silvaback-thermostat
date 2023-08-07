@@ -19,7 +19,7 @@ enum errors{
 };
 
 #define MAX_TEMPERATURE 60 // max temp in deg C
-#define ROOM_TEMPERATURE 22 // set minimum to be at room temperature
+#define ROOM_TEMPERATURE 25 // set minimum to be at room temperature
 
 // todo: ideally the reference temperature should be the room temperature
 
