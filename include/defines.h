@@ -9,8 +9,8 @@
 
 // pins
 #define RELAY 20
-#define LOAD_ON 23 // indicate when the AC load is ON
-#define BUZZER 18
+#define LOAD_ON 18 // indicate when the AC load is ON
+#define BUZZER 19
 
 uint32_t ENABLE_REMOTE =  1;
 
@@ -29,7 +29,7 @@ enum errors{
  */
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-#define OLED_RESET  -1
+#define OLED_RESET  (-1)
 #define SCREEN_ADDRESS 0x3C
 
 enum states{

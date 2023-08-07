@@ -163,6 +163,8 @@ Button encoder_button = {encoder_button_pin, 0, false}; // todo: debounce this w
 
 volatile uint32_t counter = 0;
 unsigned long debounce_delay = 50;
+uint32_t previous_time = 0;
+uint32_t current_time = 0;
 
 /*
  * Interrupt service routine for handling encoder button rotation
@@ -234,24 +236,6 @@ void IRAM_ATTR encoderButtonPress(){
 /*
  * =======================================FEATURE FUNCTIONS=================================
  */
-
-// set temperature
-void setTemperature(){
-
-
-    display.clearDisplay();
-    display.setCursor(20, 0);
-    display.println("Set temperature");
-
-    display.setCursor(40, 40);
-    display.setFont(&FreeMonoBold18pt7b);
-
-    display.println(set_point);
-
-    display.setFont();
-    display.display();
-
-}
 
 
 /*
@@ -381,48 +365,22 @@ void drawMenu(uint32_t item){
  * Switch ON or OFF the HVAC voltage switch - relay
  */
 void activate_HVAC(uint32_t set, uint32_t ambient){
-    // if ambient temperature is less than the set point, warm the room
-    // if the ambient temperature is more than the set point, it is hot, cool the room
+    // if ambient temperature is less than the set point, turn on heating element
+    // if the ambient temperature is more than the set point, it is hot, turn off heating element
+
+    debugln(ambient);
+    debugln(set);
 
     if(ambient > set){
         digitalWrite(RELAY, HIGH);
 
         // visual report on the LOAD_ON led
-        digitalWrite(LOAD_ON, HIGH);
-    } else {
-        digitalWrite(RELAY, LOW);
         digitalWrite(LOAD_ON, LOW);
+    } else if( ambient < set) {
+        digitalWrite(RELAY, LOW);
+        digitalWrite(LOAD_ON, HIGH);
     }
 }
-
-/*
- * Allow the user to set the reference temperature
- * called when the user chooses set temperature from the menu
- */
-//void set_reference_temperature(){
-//    // poll the increment and decrement buttons
-//    if(up_btn.getState() == Button::Pressed){
-//        set_point++;
-//
-//        // check against the threshold temperature
-//        if(set_point >= MAX_TEMPERATURE){
-//            buzz();
-//
-//            // todo: lock the temperature from incrementing on the screen
-//
-//        }
-//    }
-//
-//    if(down_btn.getState() == Button::Pressed){
-//        set_point--;
-//
-//        if(set_point <= ROOM_TEMPERATURE){
-//            buzz();
-//
-//            // todo: lock the temperature from going below the room_temperature
-//        }
-//    }
-//}
 
 /**
  * Activate WIFI subsystem
@@ -454,6 +412,9 @@ void deactivate_WIFI(){
 
 void setup() {
     Serial.begin(BAUD_RATE);
+
+    pinMode(LOAD_ON, OUTPUT);
+    pinMode(RELAY, OUTPUT);
 
     // configure ADC
     config_adc_rtc();
@@ -491,10 +452,12 @@ void loop() {
      * Handle encoder button press
      */
 
+    debugln(state);
     if(encoder_button.pressed && state == states::HOME){
         // debug("Button pressed "); debug(encoder_button.no_of_presses); debugln();
 
         state = states::MENU; // change operating state to menu
+
         encoder_button.pressed = false;
 
         /*
@@ -503,11 +466,9 @@ void loop() {
         drawMenu(menu_item);
 
         do {
-
-            // debugln(encoder_direction);
+            debugln(state);
 
             if(encoder_direction == "CCW"){
-                debug("Up"); debugln(counter);
 
                 drawMenu(counter);
 
@@ -517,11 +478,13 @@ void loop() {
                     if(counter == 0){
                         // SET TEMPERATURE
                         state = states::MENU_ITEM_ONE;
-                        debugln(menu_items[counter]);
+
                         encoder_button.pressed = false;
 
                         // set the reference temperature
                         do{
+                            debugln(state);
+
                             display.clearDisplay();
                             display.setCursor(20, 0);
                             display.println("Set temperature");
@@ -532,12 +495,12 @@ void loop() {
                             // check for encoder rotation increment or decrement
                             if(encoder_direction == "CCW"){
                                 set_point = counter;
-                                debugln(counter);
+//                                debugln(counter);
 
                                 display.println(set_point);
                             } else if  (encoder_direction == "CW"){
                                 set_point = counter;
-                                debugln(counter);
+//                                debugln(counter);
                                 display.println(set_point);
                             }
 
@@ -554,26 +517,16 @@ void loop() {
                             }
 
                         } while(state == states::MENU_ITEM_ONE);
-
-                        debugln(state);
-
                     } else if (counter == 1){
                         // ENABLE REMOTE
                     }
                 }
 
-                encoder_button.pressed = false;
+                //encoder_button.pressed = false;
 
             } else if(encoder_direction == "CW"){
-                debug("Down"); debugln(counter);
-
                 drawMenu(counter);
-
-                debugln(menu_items[counter]);
-
             }
-
-            // if button is pressed here,
 
             if(encoder_button.pressed && state == MENU){
                 encoder_button.pressed = false;
@@ -587,6 +540,15 @@ void loop() {
 
     // reset state to home
     state = HOME;
+
+    /*
+     * =========================== CONTROL HEATING ELEMENT =================================
+     */
+    activate_HVAC(set_point, ambient_temperature);
+
+    /*
+     * =========================== END OF HEATING ELEMENT CONTROL ===========================
+     */
 
 
 }
