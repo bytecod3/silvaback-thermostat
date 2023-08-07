@@ -11,7 +11,8 @@
 
 // surrounding temperature
 uint32_t ambient_temperature = 0;
-uint32_t set_point = 40;
+volatile uint32_t set_point = 0;
+void setTemperature();
 
 // default mode = HOME
 uint8_t state = HOME;
@@ -97,7 +98,7 @@ void config_screen(){
 }
 
 
-void display_default(uint32_t val, uint32_t set_point){
+void display_default(uint32_t val){
     display.clearDisplay();
     display.setTextColor(WHITE);
     display.setTextSize(1);
@@ -142,6 +143,7 @@ void display_default(uint32_t val, uint32_t set_point){
 }
 
 
+
 /**
 * ====================================== ROTARY ENCODER =============================
 */
@@ -160,7 +162,7 @@ String encoder_direction = "";
 Button encoder_button = {encoder_button_pin, 0, false}; // todo: debounce this with schmitt
 
 volatile uint32_t counter = 0;
-unsigned long debounce_delay = 0;
+unsigned long debounce_delay = 50;
 
 /*
  * Interrupt service routine for handling encoder button rotation
@@ -181,18 +183,39 @@ void IRAM_ATTR readEncoder(){
     if(encoder_value > 2){ // two steps forward
         encoder_direction = "CW";
 
-        if(counter < 4){
-            // set boundary condition for menu - last item in menu todo:change 4 to menu size
-            counter++; //increase counter
+        if(state == states::MENU) {
+            if(counter < 4){
+                // set boundary condition for menu - last item in menu todo:change 4 to menu size
+                counter++; //increase counter
+            }
+        } else if(state == states::MENU_ITEM_ONE){
+            // set boundary conditions for setting temperature
+            if(counter < 70){
+                counter++; // cannot go above 70 deg todo: beep here
+            }
         }
 
         encoder_value = 0;
 
     } else if(encoder_value < -2){ // two steps backwards
         encoder_direction = "CCW";
-        if(counter > 0){
-            // set boundary condition - first item of menu
-            counter--;
+
+        if(state == states::MENU){
+            if(counter > 0){
+                // set boundary condition - first item of menu
+                counter--;
+            }
+        } else if (state == states::MENU_ITEM_ONE){
+            if (counter > 0){
+                counter--;
+
+                if (counter < 0){
+                    // cannot go below zero
+                    counter = 0;
+                }
+
+                // todo: beep here
+            }
         }
 
         encoder_value = 0;
@@ -205,7 +228,36 @@ void IRAM_ATTR readEncoder(){
 void IRAM_ATTR encoderButtonPress(){
     encoder_button.no_of_presses++;
     encoder_button.pressed = true;
+
 }
+
+/*
+ * =======================================FEATURE FUNCTIONS=================================
+ */
+
+// set temperature
+void setTemperature(){
+
+
+    display.clearDisplay();
+    display.setCursor(20, 0);
+    display.println("Set temperature");
+
+    display.setCursor(40, 40);
+    display.setFont(&FreeMonoBold18pt7b);
+
+    display.println(set_point);
+
+    display.setFont();
+    display.display();
+
+}
+
+
+/*
+ * =============================END OF FEATURE FUNCTIONS===================================
+ */
+
 
 /*
  * Attach interrupts for encoder pins
@@ -319,22 +371,6 @@ void drawMenu(uint32_t item){
 
 }
 
-// set temperature
-void setTemperature(){
-    display.clearDisplay();
-    display.setCursor(20, 0);
-    display.println("Set temperature");
-
-    display.setCursor(40, 40);
-    display.setFont(&FreeMonoBold18pt7b);
-
-    display.println(set_point);
-
-    display.setFont();
-    display.display();
-
-}
-
 
 /*
  * ======================================= END OF MENU FUNCTIONS =============================
@@ -426,7 +462,7 @@ void setup() {
     config_screen();
 
     // set default mode
-    display_default(ambient_temperature, set_point);
+    display_default(ambient_temperature);
 
     // set rotary encoder pin-outs
     encoderInterruptAttach();
@@ -444,7 +480,7 @@ void loop() {
         debugln("Err:Could not read");
     }
 
-    display_default(ambient_temperature, set_point);
+    display_default(ambient_temperature);
 
     /*
      * Handle encoder rotation
@@ -456,7 +492,7 @@ void loop() {
      */
 
     if(encoder_button.pressed && state == states::HOME){
-        // debug("Button pressed "); debug(encoder_button.no_of_presses);debugln();
+        // debug("Button pressed "); debug(encoder_button.no_of_presses); debugln();
 
         state = states::MENU; // change operating state to menu
         encoder_button.pressed = false;
@@ -465,6 +501,7 @@ void loop() {
          * =============== DRAW MENU =======================================
          */
         drawMenu(menu_item);
+
         do {
 
             // debugln(encoder_direction);
@@ -476,18 +513,52 @@ void loop() {
 
                 // if encoder button is clicked while the menu is being displayed,
                 // call the corresponding menu function
-                if(encoder_button.pressed){
+                if(encoder_button.pressed && state == states::MENU){
                     if(counter == 0){
+                        // SET TEMPERATURE
                         state = states::MENU_ITEM_ONE;
                         debugln(menu_items[counter]);
+                        encoder_button.pressed = false;
 
-                        state = states::MENU_ITEM_ONE;
+                        // set the reference temperature
                         do{
-                            setTemperature();
-                            state = states::MENU_ITEM_ONE;
-                        } while(state);
+                            display.clearDisplay();
+                            display.setCursor(20, 0);
+                            display.println("Set temperature");
+
+                            display.setCursor(40, 40);
+                            display.setFont(&FreeMonoBold18pt7b);
+
+                            // check for encoder rotation increment or decrement
+                            if(encoder_direction == "CCW"){
+                                set_point = counter;
+                                debugln(counter);
+
+                                display.println(set_point);
+                            } else if  (encoder_direction == "CW"){
+                                set_point = counter;
+                                debugln(counter);
+                                display.println(set_point);
+                            }
+
+                            display.setFont();
+                            display.display();
+
+                            // if button is pressed while setting temperature, return to menu view
+                            if(encoder_button.pressed && state == states::MENU_ITEM_ONE){
+                                // change state to menu
+                                state = states::MENU;
+                                encoder_button.pressed = false;
+                                break;
+
+                            }
+
+                        } while(state == states::MENU_ITEM_ONE);
 
                         debugln(state);
+
+                    } else if (counter == 1){
+                        // ENABLE REMOTE
                     }
                 }
 
@@ -502,14 +573,15 @@ void loop() {
 
             }
 
+            // if button is pressed here,
+
+            if(encoder_button.pressed && state == MENU){
+                encoder_button.pressed = false;
+                display_default(ambient_temperature);
+                break;
+            }
+
         } while(state == MENU);
-
-        // if button is pressed here,
-
-        if(encoder_button.pressed && state == MENU){
-            display_default(ambient_temperature, set_point);
-        }
-
 
     }
 

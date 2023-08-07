@@ -36,7 +36,9 @@ enum states{
     HOME,
     MENU,
     MENU_ITEM_ONE,
-    MENU_ITEM_TWO
+    MENU_ITEM_TWO,
+    MENU_ITEM_THREE,
+    SETTING_TEMPERATURE
 };
 
 uint32_t MENU_X_OFFSET = 15;
