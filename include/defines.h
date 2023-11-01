@@ -12,7 +12,7 @@
 #define LOAD_ON 18 // indicate when the AC load is ON
 #define BUZZER 19
 
-uint32_t ENABLE_REMOTE =  1;
+uint8_t ENABLE_REMOTE =  1;
 
 enum errors{
     PARAMETER_ERR = -1,
@@ -31,6 +31,7 @@ enum errors{
 #define SCREEN_HEIGHT 64
 #define OLED_RESET  (-1)
 #define SCREEN_ADDRESS 0x3C
+#define SPLASH_DELAY 3000 // show splash screen time
 
 enum states{
     HOME,
@@ -52,8 +53,8 @@ uint32_t MENU_Y_OFFSET = 17;
 Rotary encoder variables 
  */
 #define SW 12
-#define OUT_A 26
-#define OUT_B 27
+#define OUT_A 27
+#define OUT_B 26
 
 /*
  * Debug variables

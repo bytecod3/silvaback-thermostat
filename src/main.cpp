@@ -2,13 +2,10 @@
 #include <driver/adc.h>
 #include "defines.h"
 #include "Temperature.h"
+#include "splash_screen.h"
 #include <SPI.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Fonts/FreeMonoBold18pt7b.h>
-#include <Fonts/FreeMono9pt7b.h>
 #include <Preferences.h>
+#include <U8g2lib.h>
 
 // surrounding temperature
 uint32_t ambient_temperature = 0;
@@ -26,7 +23,7 @@ uint8_t state = HOME;
  */
 void config_adc_rtc(){
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
+    adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11); // pin 36  
 }
 
 uint32_t read_divider_analog_value(){
@@ -37,8 +34,12 @@ uint32_t read_divider_analog_value(){
 /**
  * Configure the screen
  */
-
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#define SCREEN_HEIGHT 64
+#define SCREEN_WIDTH 128
+#define YELLOW_OFFSET 16
+#define OLED_SDA 21
+#define OLED_SCL 22
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(/*R2: rotation 180*/U8G2_R0, /*reset*/U8X8_PIN_NONE, /* clock */ OLED_SCL, /* data */ OLED_SDA);
 
 uint16_t wifiHotspot_icon_W = 16;
 uint16_t wifiHotspot_icon_H = 16;
@@ -88,65 +89,17 @@ void buzz(){
     digitalWrite(BUZZER, HIGH);
     delay(200);
     digitalWrite(BUZZER, LOW);
+    delay(200);
 }
-
-
-void config_screen(){
-    if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)){
-        debugln("[-]ERR: Display allocation failed!");
-        for(;;);
-    }
-
-    // allocation succeeded
-    display.clearDisplay();
-}
-
 
 void display_default(uint32_t val){
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setTextSize(1);
-    display.drawBitmap(0, 0, home_icon16x16, 10, 10, WHITE);
-    display.setCursor(13,0);
-    display.println("Online");
-    display.drawRect(30, 17, 90, 35, WHITE);
+  u8g2.clearDisplay();
+  u8g2.clearBuffer();
+  u8g2.print(val);
 
-    // units
-    display.setCursor(50, 0);
-    display.println("Mode: Auto");
-
-    // show the set reference temperature
-    display.setCursor(0, 17);
-    display.println("Set: ");
-    display.setCursor(0, 25);
-    display.println(user_data.getUInt("set_point", ROOM_TEMPERATURE));
-    display.drawCircle(16, 27, 1, WHITE);
-    display.setCursor(18, 25);
-    display.println("C"); // todo: function to change units and convert
-
-    // draw logo
-    display.drawBitmap(0, 35, wifiHotspot_icon, 15, 15, WHITE);
-
-    // display the temperature value
-//    display.setTextSize(3);
-    display.setFont(&FreeMonoBold18pt7b);
-    display.setCursor(34, 43);
-    display.println(val);
-    display.drawCircle(80, 22, 2, WHITE);
-    display.setCursor(83, 43);
-    display.println("C");
-    display.setFont();
-
-    // show menu options at the bottom
-    display.setTextSize(1);
-    display.setCursor(0, SCREEN_HEIGHT-10);
-    display.println("July, Thur 12:34 AM");
-
-    display.display();
+  u8g2.sendBuffer();
 
 }
-
-
 
 /**
 * ====================================== ROTARY ENCODER =============================
@@ -265,100 +218,113 @@ void encoderInterruptAttach(){
  * ====================== END OF ROTARY ENCODER FUNCTIONS ====================================
  */
 
-
 /*
  * ========================================== MENU ================================
  */
-
-uint32_t menu_item = 0;
-uint32_t frame = 1;
-uint32_t page = 1;
-uint32_t last_menu_item = 1;
-uint32_t menu_timeout = 6000; // if menu goes inactive for this state, return to home state
-#define MENU_SIZE 5
 
 bool up = false;
 bool down = false;
 bool middle = false;
 bool menu_state = false; // true if we get into displaying the menu
 
-String menu_items[MENU_SIZE] = {
-        "Set temperature",
-        "Enable remote",
-        "Sleep",
-        "Change units",
-        "Reset"
+// ' icon_about', 16x16px
+const unsigned char epd_bitmap__icon_about [] PROGMEM = {
+  0x00, 0x00, 0x07, 0xc0, 0x08, 0x20, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x20, 0x08, 0x40, 
+  0x04, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00
+};
+// ' icon_change_units', 16x16px
+const unsigned char epd_bitmap__icon_change_units [] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x1f, 0xe0, 0x20, 0x10, 0x40, 0x08, 0x40, 0x00, 0x40, 0x00, 0x40, 0x00, 
+  0x40, 0x00, 0x40, 0x00, 0x40, 0x00, 0x40, 0x00, 0x40, 0x08, 0x20, 0x10, 0x1f, 0xe0, 0x00, 0x00
+};
+// ' icon_enable_remote', 16x16px
+const unsigned char epd_bitmap__icon_enable_remote [] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x3f, 0xfe, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x3f, 0xf2, 0x00, 0x12, 
+  0x00, 0x12, 0x3f, 0x12, 0x01, 0x12, 0x01, 0x12, 0x39, 0x12, 0x09, 0x12, 0x09, 0x12, 0x00, 0x00
+};
+// ' icon_reset', 16x16px
+const unsigned char epd_bitmap__icon_reset [] PROGMEM = {
+  0x00, 0x00, 0x07, 0xc0, 0x08, 0x30, 0x10, 0x08, 0x20, 0x04, 0x40, 0x04, 0x40, 0x02, 0x40, 0x02, 
+  0x40, 0x02, 0x20, 0x84, 0x30, 0x84, 0x10, 0x84, 0x1c, 0x88, 0x02, 0x90, 0x01, 0x80, 0x3f, 0x80
+};
+// ' icon_set_temp', 16x16px
+const unsigned char epd_bitmap__icon_set_temp [] PROGMEM = {
+  0x00, 0x00, 0x0e, 0x38, 0x11, 0x28, 0x11, 0x38, 0x19, 0x00, 0x11, 0x00, 0x19, 0x00, 0x11, 0x00, 
+  0x19, 0x00, 0x11, 0x00, 0x28, 0x80, 0x48, 0x40, 0x7f, 0xc0, 0x7f, 0xc0, 0x3f, 0x80, 0x00, 0x00
+};
+// ' icon_sleep', 16x16px
+const unsigned char epd_bitmap__icon_sleep [] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3f, 0x00, 0x02, 0x00, 0x04, 0x70, 0x08, 0x20, 
+  0x10, 0x46, 0x3f, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-// enable remote options
-String enable_remote[2] = {
-    "Yes",
-    "No"
+// Array of all bitmaps for convenience. (Total bytes used to store images in PROGMEM = 288)
+const unsigned char* bitmap_icons[6] = {
+  epd_bitmap__icon_about,
+  epd_bitmap__icon_change_units,
+  epd_bitmap__icon_enable_remote,
+  epd_bitmap__icon_reset,
+  epd_bitmap__icon_set_temp,
+  epd_bitmap__icon_sleep
 };
-uint32_t selected_remote_state = 0;
-
-String change_units[2] = {
-        "C",
-        "F"
+// ' item_sel_background', 125x21px
+const unsigned char epd_bitmap__item_sel_background [] PROGMEM = {
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe8, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 
+  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe8, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08
 };
-uint32_t selected_units = 0;
+// ' scrollbar_background', 4x64px
+const unsigned char epd_bitmap__scrollbar_background [] PROGMEM = {
+  0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 
+  0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x30, 0x30, 0x30, 0x30, 0x30, 
+  0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 
+  0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x20, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00
+};
 
-void drawMenu(uint32_t item){
-    /**
-     * display static menu
-     */
-    display.clearDisplay();
-    display.setCursor(15, 0);
-    display.println("Menu");
 
-    /*========================== */
-    switch(item){
-        case(0):
-            display.setCursor(0, MENU_Y_OFFSET);
-            display.println(">");
-            break;
-
-        case (1):
-            display.setCursor(0, MENU_Y_OFFSET + 10);
-            display.println(">");
-            break;
-
-        case (2):
-            display.setCursor(0, MENU_Y_OFFSET + 20);
-            display.println(">");
-            break;
-
-        case (3):
-            display.setCursor(0, MENU_Y_OFFSET + 30);
-            display.println(">");
-            break;
-
-        case (4):
-            display.setCursor(0, MENU_Y_OFFSET + 40);
-            display.println(">");
-            break;
-
-        default:
-
-            display.setCursor(0, MENU_Y_OFFSET);
-            display.println(">");
-            break;
-    }
-
-    for (const auto & menu_item : menu_items) {
-        display.setCursor(MENU_X_OFFSET, MENU_Y_OFFSET);
-        display.println(menu_item);
-
-        MENU_Y_OFFSET += 10;
-
-    }
-
-    MENU_Y_OFFSET = 17;
-
-    display.display();
-
+/*
+ * Show splash screen when device first boots
+ */
+void showSplashScreen(){
+    u8g2.firstPage();
+    do{
+        u8g2.drawBitmap(0, 0, 128/8, 64, epd_bitmap_splash_screen);
+    } while(u8g2.nextPage());
+    
 }
 
+const int NUM_ITEMS = 6;
+
+char menu_items[NUM_ITEMS][20] = {
+  {"About"},
+  {"Change units"},
+  {"Enable remote"},
+  {"Reset"},
+  {"Set temperature"},
+  {"Sleep"}
+};
+
+int selected_item = 0; // which item in the menu is selected
+int previous_item; // item before the selected one
+int next_item; // item after the selected one
 
 /*
  * ======================================= END OF MENU FUNCTIONS =============================
@@ -433,6 +399,14 @@ void wakeup(){
     ESP.restart();
 }
 
+int encoder_clockwise = 0;
+int encoder_counterclockwise = 0;
+String current_encoder_direction;
+String previous_encoder_direction;
+unsigned long encoder_unclick_current_time = 0;
+unsigned long encoder_unclick_previous_time = 0;
+unsigned long interval = 500;
+
 void setup() {
     Serial.begin(BAUD_RATE);
 
@@ -443,10 +417,12 @@ void setup() {
     config_adc_rtc();
 
     // configure screen
-    config_screen();
+    u8g2.setColorIndex(1);  // set the color to white
+    u8g2.begin();
 
     // set default mode
-    display_default(ambient_temperature);
+    showSplashScreen();
+    // delay(SPLASH_DELAY);
 
     // set rotary encoder pin-outs
     encoderInterruptAttach();
@@ -474,166 +450,101 @@ void setup() {
 
 void loop() {
 
-    debug("User set_point: ");
-    debugln(user_data.getUInt("set_point"));
-
     analog_out = read_divider_analog_value();
     ambient_temperature = calculate_temp_in_deg_C(analog_out);
 
     if (ambient_temperature == PARAMETER_ERR){
-        debugln("Err:Could not read");
+        debugln("Err:Could not read"); // log this efficiently - create a logger class
     }
 
-    display_default(ambient_temperature);
-
-    /*
-     * Handle encoder rotation
-     */
-    static uint8_t last_counter = 0;
-
-    /*
-     * Handle encoder button press
-     */
-
+    // if encoder button is pressed initially, change state to menu
     if(encoder_button.pressed && state == states::HOME){
-        // debug("Button pressed "); debug(encoder_button.no_of_presses); debugln();
-
-        state = states::MENU; // change operating state to menu
-
-        encoder_button.pressed = false;
-
-        /*
-         * =============== DRAW MENU =======================================
-         */
-        drawMenu(menu_item);
-
-        do {
-            debugln(state);
-
-            if(encoder_direction == "CCW"){
-
-                drawMenu(counter);
-
-                // if encoder button is clicked while the menu is being displayed,
-                // call the corresponding menu function
-                if(encoder_button.pressed && state == states::MENU){
-
-                    debugln(counter);
-
-                    if(counter == 0){
-                        // SET TEMPERATURE
-                        state = states::MENU_ITEM_ONE;
-
-                        debugln("We ar here");
-
-                        encoder_button.pressed = false;
-
-                        // set the reference temperature
-                        do{
-                            debugln(state);
-
-                            display.clearDisplay();
-                            display.setCursor(20, 0);
-                            display.println("Set temperature");
-
-                            display.setCursor(40, 40);
-                            display.setFont(&FreeMonoBold18pt7b);
-
-                            // check for encoder rotation increment or decrement
-                            set_point = counter;
-                            display.println(user_data.getUInt("set_point", ROOM_TEMPERATURE));
-
-                            // update this variable in NVS in case controller loses power
-                            user_data.putUInt("set_point", set_point);
-
-                            display.setFont();
-                            display.display();
-
-                            // if button is pressed while setting temperature, return to menu view
-                            if(encoder_button.pressed && state == states::MENU_ITEM_ONE){
-                                // change state to menu
-                                state = states::MENU;
-                                encoder_button.pressed = false;
-                                break;
-
-                            }
-
-                        } while(state == states::MENU_ITEM_ONE);
-
-                    } else if (counter == 2) {
-                        // GO INTO DEEP SLEEP - ZZZ... :)
-                        debugln("We ar here second");
-
-                        state = states::MENU_ITEM_TWO;
-
-                        encoder_button.pressed = false;
-
-                        if (encoder_button.pressed && state == states::MENU_ITEM_TWO){
-
-                            do {
-                                if(state == states::MENU_ITEM_TWO){
-                                    debugln("MENU_ITEM_TWO");
-                                }
-
-                                display.clearDisplay();
-                                display.setCursor(20, 40);
-                                display.setFont(&FreeMono9pt7b);
-                                display.println("Standby");
-                                display.setFont();
-                                display.display();
-
-                                delay(DEEP_SLEEP_COUNTDOWN);
-
-                                // esp_deep_sleep_start();
-
-
-
-
-                            } while (state == states::MENU_ITEM_TWO);
-
-                        }
-                    } else if (counter == 4){
-                        // RESTART ESP
-
-                        state = states::MENU_ITEM_FOUR;
-                        encoder_button.pressed = false;
-
-                        do{
-                            if(encoder_button.pressed && state == states::MENU_ITEM_FOUR){
-                                ESP.restart();
-                            }
-
-                        } while(state == states::MENU_ITEM_FOUR);
-
-                    }
-
-                }
-                // RESET STATE
-                //state = states::MENU;
-
-                //encoder_button.pressed = false;
-
-            } else if(encoder_direction == "CW"){
-                drawMenu(counter);
-            }
-
-            if(encoder_button.pressed && state == MENU){
-                encoder_button.pressed = false;
-                display_default(ambient_temperature);
-                break;
-            }
-
-        } while(state == MENU);
-
+        encoder_button.pressed = false; // reset the encoder button
+        state = states::MENU;
     }
 
-    // reset state to home
-    state = HOME;
+    while(state == states::MENU){
+
+        if(encoder_direction == "CCW"){
+            // jump to the previous menu item
+            selected_item = selected_item - 1; // select the previous item
+            encoder_counterclockwise = 1; // ensure item is only selected once
+        
+        
+            if(selected_item < 0){
+                // if first item is selected, jump to the last item
+                selected_item = NUM_ITEMS - 1;
+            }
+
+        } else if(encoder_direction == "CW"){
+
+            // jump to the next menu item 
+            selected_item = selected_item + 1;
+            encoder_clockwise = 1; // ensure item is only selected once
+
+            if(selected_item >= NUM_ITEMS){ // if last item was selected, jump to the first item in the list
+                selected_item = 0;
+            }
+
+        }
+
+        encoder_direction = "";
+
+        // handle encoder button press - while we are in the menu state
+
+        // calculate the menu items
+        previous_item = selected_item - 1;
+        if(previous_item < 0){
+            previous_item = NUM_ITEMS - 1; // wrap to the last menu item
+        } 
+
+        next_item = selected_item + 1;
+        if(next_item >= NUM_ITEMS){
+            next_item = 0; // wrap to the first menu item
+        }
+
+        // render items on the screen 
+        u8g2.firstPage();
+        do {
+            
+            if(state == states::MENU){ // 
+                // selected item background
+                u8g2.drawBitmap(0, 22, 128/8, 21, epd_bitmap__item_sel_background);
+
+                // previous item
+                //u8g2.setFont(u8g2_font_ncenB14_tr);
+                u8g2.setFont(u8g2_font_7x14_tr);
+                u8g2.drawBitmap(3, 2, 16/8, 16, bitmap_icons[previous_item]);
+                u8g2.drawStr(24,15,menu_items[previous_item]);
+
+                // selected item
+                u8g2.setFont(u8g2_font_7x14_tr);
+                u8g2.drawBitmap(3, 24, 16/8, 16, bitmap_icons[selected_item]);
+                u8g2.drawStr(24,38,menu_items[selected_item]);
+
+                // next item
+                u8g2.setFont(u8g2_font_7x14_tr);
+                u8g2.drawBitmap(3, 47, 16/8, 16, bitmap_icons[next_item]);
+                u8g2.drawStr(24,59, menu_items[next_item]);
+                
+                // scrollbar
+                u8g2.drawBitmap(124, 0, 4/8, 64, epd_bitmap__scrollbar_background);
+            }
+
+            
+        } while ( u8g2.nextPage() ); 
+
+      
+    }
+
+    // reset the state to home for the next iteration
+    state = states::HOME;
+
 
     /*
      * =========================== CONTROL HEATING ELEMENT =================================
      */
-    activate_HVAC(set_point, ambient_temperature);
+    //activate_HVAC(set_point, ambient_temperature);
 
     /*
      * =========================== END OF HEATING ELEMENT CONTROL ===========================
