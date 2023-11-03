@@ -8,17 +8,16 @@
 #define BAUD_RATE 115200
 
 // pins
-#define RELAY 20
+#define RELAY 33
 #define LOAD_ON 18 // indicate when the AC load is ON
-#define BUZZER 19
-
-uint8_t ENABLE_REMOTE =  1;
+#define BUZZER 2
 
 enum errors{
     PARAMETER_ERR = -1,
 };
 
-#define MAX_TEMPERATURE 60 // max temp in deg C
+#define MAX_TEMPERATURE 100 // max temp in deg C
+#define MIN_TEMPERATURE 0
 #define ROOM_TEMPERATURE 25 // set minimum to be at room temperature
 
 // todo: ideally the reference temperature should be the room temperature
@@ -32,16 +31,17 @@ enum errors{
 #define OLED_RESET  (-1)
 #define SCREEN_ADDRESS 0x3C
 #define SPLASH_DELAY 3000 // show splash screen time
+#define SLEEP_DELAY 3000 // wait for some seconds before sleeping the device, it feels better that way
 
 enum states{
     HOME,
     MENU,
-    MENU_ITEM_ONE,
-    MENU_ITEM_TWO,
-    MENU_ITEM_THREE,
-    MENU_ITEM_FOUR,
-    MENU_ITEM_FIVE,
-    SETTING_TEMPERATURE
+    ABOUT,
+    CHANGE_UNITS,
+    ENABLE_REMOTE,
+    RESET,
+    SET_TEMPERATURE,
+    SLEEP
 };
 
 #define DEEP_SLEEP_COUNTDOWN 3000

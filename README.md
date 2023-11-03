@@ -25,7 +25,7 @@ SilvaBack Digital Thermostat
 ![Block diagram](HomemadeThermostat.jpg)
 
 # Temperature Measurement
-###Thermistor
+### Thermistor
 This circuit uses a 10k NTC thermometer to measure temperature. NTC thermistor's resistance
 decreases with increase in temperature and vice versa. 
 
@@ -67,6 +67,17 @@ uint32_t calculate_temp_in_deg_C(uint32_t vo){
 
 This formula is guaranteed to give us the desired temperature accurately.
 
+# Features
+## Setting temperature
+This feature allows the user to set the temperature that the room will be maintained at. Maximum temperature we can set is 100 deg C.
+Minimum temperature is 25 deg C( room temperature)
+
+The function to set temperature is capped to ```C MAX_TEMPERATURE``` and ```C MIN_TEMPERATURE```. So when the user rotates the encoder beyond these values, the value is not incremented or decremented. 
+
+Of course this depends on the set units; whether Celcius or Farenheit.
+
+In this mode, when the user clicks the encoder button, the set point is saved to the ```c ESP32 Non Volatile Storage ```. 
+On exit this value is fetched from the NVS and displayed on the homescreen. 
 
 # References
 1. [ESP-IDF Programming Guide](https://docs.espressif.com/projects/esp-idf/en/v4.2/esp32/index.html)
