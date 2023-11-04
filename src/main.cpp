@@ -12,7 +12,7 @@
 uint32_t ambient_temperature = 0;
 uint32_t set_point = ROOM_TEMPERATURE; // initial set point is the room temp
 char set_point_buffer[5]; // buffer to hold converted set point
-char temp_buffer[3]; // buffer to hold temperature converted to string - make less than 10
+char temp_buffer[10]; // buffer to hold temperature converted to string - make less than 10
 void setTemperature();
 
 // initialize NVS for storing user set temperature
@@ -30,7 +30,7 @@ void config_adc_rtc(){
 }
 
 uint32_t read_divider_analog_value(){
-    uint32_t val = adc1_get_raw(ADC1_CHANNEL_0);
+    uint32_t val = adc1_get_raw(ADC1_CHANNEL_0); // read temperature
     return val;
 }
 
@@ -434,6 +434,8 @@ void showSplashScreen(){
 }
 
 void drawHomescreen(int temp){
+    sprintf(temp_buffer, "%d", temp); // convert the temp from int to char for correct display
+
     u8g2.firstPage();
     do{
         
@@ -443,9 +445,9 @@ void drawHomescreen(int temp){
         u8g2.drawBitmap(28, 14, 96/8, 50, epd_bitmap__temp_border); // border around the temperature value
 
         // display the temperature 
-        u8g2.setFont(u8g2_font_inb30_mf);
-        sprintf(temp_buffer, "%.0f", temp);
-        u8g2.drawStr(50, 55, "43");
+        // u8g2.setFont(u8g2_font_inb30_mf);
+        u8g2.setFont(u8g2_font_fub30_tr);
+        u8g2.drawStr(50, 55, temp_buffer); // display the converted temperature
 
         // display the mode
         u8g2.setFont(u8g2_font_amstrad_cpc_extended_8f);
@@ -516,13 +518,11 @@ void activate_HVAC(uint32_t set, uint32_t ambient){
     // if ambient temperature is less than the set point, turn on heating element
     // if the ambient temperature is more than the set point, it is hot, turn off heating element
 
-    debugln(ambient);
-    debugln(set);
     if(ambient > set){
         digitalWrite(RELAY, LOW); // turn off heating element
 
-        // visual report on the LOAD_ON led
-        digitalWrite(LOAD_ON, LOW);
+        // visual feedback on the LOAD_ON led
+        // digitalWrite(LOAD_ON, LOW); // todo: implement on version 2
     } else if( ambient < set) {
         digitalWrite(RELAY, HIGH); // turn on heating element
         digitalWrite(LOAD_ON, HIGH);
@@ -548,7 +548,7 @@ void deactivate_WIFI(){
 }
 
 /**
- * Enable WIFI control of the system
+ * Enable WIFI control of the system // todo: for version 1.1
  */
 //void enable_remote(){
 //    // poll the buttons to check if enable_remote flag is set
@@ -561,21 +561,21 @@ void deactivate_WIFI(){
 //    }
 //}
 
-void wakeup(){
-    esp_sleep_wakeup_cause_t wake_up_source;
+// void wakeup(){ // test function 
+//     esp_sleep_wakeup_cause_t wake_up_source;
 
-    wake_up_source = esp_sleep_get_wakeup_cause();
+//     wake_up_source = esp_sleep_get_wakeup_cause();
 
-    switch(wake_up_source){
-        case ESP_SLEEP_WAKEUP_EXT0 : debugln("Wake-up from external signal with RTC_IO"); break;
-        case ESP_SLEEP_WAKEUP_EXT1 : debugln("Wake-up from external signal with RTC_CNTL"); break;
-        case ESP_SLEEP_WAKEUP_TIMER : debugln("Wake up caused by a timer"); break;
-        case ESP_SLEEP_WAKEUP_TOUCHPAD : debugln("Wake up caused by a touchpad"); break;
-        default : Serial.printf("Wake up not caused by Deep Sleep: %d\n",wake_up_source); break;
-    }
+//     switch(wake_up_source){
+//         case ESP_SLEEP_WAKEUP_EXT0 : debugln("Wake-up from external signal with RTC_IO"); break;
+//         case ESP_SLEEP_WAKEUP_EXT1 : debugln("Wake-up from external signal with RTC_CNTL"); break;
+//         case ESP_SLEEP_WAKEUP_TIMER : debugln("Wake up caused by a timer"); break;
+//         case ESP_SLEEP_WAKEUP_TOUCHPAD : debugln("Wake up caused by a touchpad"); break;
+//         default : Serial.printf("Wake up not caused by Deep Sleep: %d\n",wake_up_source); break;
+//     }
 
-    ESP.restart();
-}
+//     ESP.restart();
+// }
 
 int encoder_clockwise = 0;
 int encoder_counterclockwise = 0;
@@ -619,14 +619,10 @@ void setup() {
     // if none found, return the room temperature
     set_point = user_data.getUInt("set_point", ROOM_TEMPERATURE);
 
-    debugln("Created NVS partition");
-
-    //wakeup();
     buzz();
 
     // enable external RTC GPIO wakeup
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_25, HIGH);
-
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_25, LOW); // wake up the device when RTC pin 25 goes LOW
 }
 
 void loop() {
@@ -634,6 +630,17 @@ void loop() {
     analog_out = read_divider_analog_value();
     ambient_temperature = calculate_temp_in_deg_C(analog_out);
     ambient_temperature = floor(ambient_temperature);
+
+    /*
+     * =========================== CONTROL HEATING ELEMENT =================================
+     */
+    // get set point from NVS
+    set_point = user_data.getUInt("set_point", ROOM_TEMPERATURE);
+    activate_HVAC(set_point, ambient_temperature);
+
+    /*
+     * =========================== END OF HEATING ELEMENT CONTROL ===========================
+     */
 
     if (ambient_temperature == PARAMETER_ERR){
         debugln("Err:Could not read"); // log this efficiently - create a logger class
@@ -771,6 +778,10 @@ void loop() {
                         }while(u8g2.nextPage());
 
                         delay(SLEEP_DELAY);
+
+                        // turn off OLED
+                        u8g2.clearBuffer(); // clear the OLED buffer to save current
+                        u8g2.clearDisplay(); // turn off the screen
                         encoder_button.pressed = false; // reset the encoder button for the next loop
                         
                         esp_deep_sleep_start();
@@ -862,16 +873,6 @@ void loop() {
 
     // reset the state to home for the next iteration
     state = states::HOME;
-
-
-    /*
-     * =========================== CONTROL HEATING ELEMENT =================================
-     */
-    //activate_HVAC(set_point, ambient_temperature);
-
-    /*
-     * =========================== END OF HEATING ELEMENT CONTROL ===========================
-     */
 
 
 }
